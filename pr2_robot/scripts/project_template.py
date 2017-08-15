@@ -168,10 +168,10 @@ def pcl_callback(pcl_msg):
     # Suggested location for where to invoke your pr2_mover() function within pcl_callback()
     # Could add some logic to determine whether or not your object detections are robust
     # before calling pr2_mover()
-#     try:
-#         pr2_mover(detected_objects_list)
-#     except rospy.ROSInterruptException:
-#         pass
+    try:
+        pr2_mover(detected_objects)
+    except rospy.ROSInterruptException:
+        pass
 
 # function to load parameters and request PickPlace service
 def pr2_mover(object_list):
@@ -181,46 +181,61 @@ def pr2_mover(object_list):
     
     test_scene_num = Int32(test_scene)
     object_name = String()
+    arm_name = String()
     pick_pose = Pose()
+    place_pose = Pose()
     
-    labels = []
-    centroids = []
+    yaml_list = []
     # TODO: Get/Read parameters
     object_list_param = rospy.get_param('/object_list')
+    place_param = rospy.get_param('/dropbox')
     # TODO: Parse parameters into individual variables
-    object_name = object_list_param[i]['name']
-    object_group = object_list_param[i]['group']
+    objects = {}
+    for i, item in enumerate(object_list_param):    
+        if object_list_param[i]['group'] == 'red':
+            objects[object_list_param[i]['name']] = 'left'
+        elif object_list_param[i]['group'] == 'green':
+            objects[object_list_param[i]['name']] = 'right'
+    group_pose = {}
+    for i, group in enumerate(place_param):
+        group_pose[group['name']] = group['position']
+    
     # TODO: Rotate PR2 in place to capture side tables for the collision map
-
+    
     # TODO: Loop through the pick list
-    for object in object_list:
-        labels.append(object.label)
-        points_arr = ros_to_pcl(object.cloud).to_array()
-        centroids.append(np.asscalar(np.mean(points_arr, axis=0)[:3]))
+    for i, object in enumerate(object_list):
+        object_name.data = (object.label).tostring()
         # TODO: Get the PointCloud for a given object and obtain it's centroid
-        
-        # TODO: Create 'place_pose' for the object
-
+        points_arr = ros_to_pcl(object.cloud).to_array()
+        centroid = np.mean(points_arr, axis=0)[:3]
+        pick_pose.position.x = np.asscalar(centroid[0])
+        pick_pose.position.y = np.asscalar(centroid[1])
+        pick_pose.position.z = np.asscalar(centroid[2])
         # TODO: Assign the arm to be used for pick_place
-
+        arm_name.data = objects[object.label]
+        # TODO: Create 'place_pose' for the object
+        place_pose.position.x = group_pose[arm_name.data][0]
+        place_pose.position.y = group_pose[arm_name.data][1]
+        place_pose.position.z = group_pose[arm_name.data][2]
         # TODO: Create a list of dictionaries (made with make_yaml_dict()) for later output to yaml format
-
+        yaml_dict = make_yaml_dict(test_scene_num, arm_name, object_name, pick_pose, place_pose)
+        yaml_list.append(yaml_dict)
         # Wait for 'pick_place_routine' service to come up
-        rospy.wait_for_service('pick_place_routine')
-
-        try:
-            pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
-
-            # TODO: Insert your message variables to be sent as a service request
-            resp = pick_place_routine(TEST_SCENE_NUM, OBJECT_NAME, WHICH_ARM, PICK_POSE, PLACE_POSE)
-
-            print ("Response: ",resp.success)
-
-        except rospy.ServiceException, e:
-            print "Service call failed: %s"%e
+#         rospy.wait_for_service('pick_place_routine')
+# 
+#         try:
+#             pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
+# 
+#             # TODO: Insert your message variables to be sent as a service request
+#             resp = pick_place_routine(TEST_SCENE_NUM, OBJECT_NAME, WHICH_ARM, PICK_POSE, PLACE_POSE)
+# 
+#             print ("Response: ",resp.success)
+# 
+#         except rospy.ServiceException, e:
+#             print "Service call failed: %s"%e
 
     # TODO: Output your request parameters into output yaml file
-
+    send_to_yaml('pick_list_1.yaml',yaml_list)
 
 
 if __name__ == '__main__':
