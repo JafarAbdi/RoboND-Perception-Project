@@ -1,68 +1,67 @@
 ## Project: Perception Pick & Place
-### Writeup Template: You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
 
----
+the numbers within the brackets mean the corresponding code lines in project_template.py
 
+#### 1. Complete Exercise 1 steps: (53 -> 100) 
 
-# Required Steps for a Passing Submission:
-1. Extract features and train an SVM model on new objects (see `pick_list_*.yaml` in `/pr2_robot/config/` for the list of models you'll be trying to identify). 
-2. Write a ROS node and subscribe to `/pr2/world/points` topic. This topic contains noisy point cloud data that you must work with.
-3. Use filtering and RANSAC plane fitting to isolate the objects of interest from the rest of the scene.
-4. Apply Euclidean clustering to create separate clusters for individual items.
-5. Perform object recognition on these objects and assign them labels (markers in RViz).
-6. Calculate the centroid (average in x, y and z) of the set of points belonging to that each object.
-7. Create ROS messages containing the details of each object (name, pick_pose, etc.) and write these messages out to `.yaml` files, one for each of the 3 scenarios (`test1-3.world` in `/pr2_robot/worlds/`).  See the example `output.yaml` for details on what the output should look like.  
-8. Submit a link to your GitHub repo for the project or the Python code for your perception pipeline and your output `.yaml` files (3 `.yaml` files, one for each test world).  You must have correctly identified 100% of objects from `pick_list_1.yaml` for `test1.world`, 80% of items from `pick_list_2.yaml` for `test2.world` and 75% of items from `pick_list_3.yaml` in `test3.world`.
-9. Congratulations!  Your Done!
+1- Downsampled my PCL cloud using voxel grid filter with leaf size 0.01m
 
-# Extra Challenges: Complete the Pick & Place
-7. To create a collision map, publish a point cloud to the `/pr2/3d_map/points` topic and make sure you change the `point_cloud_topic` to `/pr2/3d_map/points` in `sensors.yaml` in the `/pr2_robot/config/` directory. This topic is read by Moveit!, which uses this point cloud input to generate a collision map, allowing the robot to plan its trajectory.  Keep in mind that later when you go to pick up an object, you must first remove it from this point cloud so it is removed from the collision map!
-8. Rotate the robot to generate collision map of table sides. This can be accomplished by publishing joint angle value(in radians) to `/pr2/world_joint_controller/command`
-9. Rotate the robot back to its original state.
-10. Create a ROS Client for the “pick_place_routine” rosservice.  In the required steps above, you already created the messages you need to use this service. Checkout the [PickPlace.srv](https://github.com/udacity/RoboND-Perception-Project/tree/master/pr2_robot/srv) file to find out what arguments you must pass to this service.
-11. If everything was done correctly, when you pass the appropriate messages to the `pick_place_routine` service, the selected arm will perform pick and place operation and display trajectory in the RViz window
-12. Place all the objects from your pick list in their respective dropoff box and you have completed the challenge!
-13. Looking for a bigger challenge?  Load up the `challenge.world` scenario and see if you can get your perception pipeline working there!
+2- apply 2 path-through filters one in 'z' axis and, the other in 'y' axis, the 'z', and 'y' axes' parameters were as follow for 'z' min = 0.6 and max = 1.1, for 'y' min = -0.45, max = 0.45 I picked these parameters such that just the table in front of the robot appear
 
-## [Rubric](https://review.udacity.com/#!/rubrics/1067/view) Points
-### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
+3- apply "Statistical Outlier Filter" with, 
 
----
-### Writeup / README
+3.1- the number of neighbors to analyze for each point equal to 50. 
 
-#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  
+3.2- standard deviation multiplier to 1, setting this parameter to a smaller number was giving me a better cloud but it can remove some items e.g. in test 3 it excludes the glue.
 
-You're reading it!
-
-### Exercise 1, 2 and 3 pipeline implemented
-#### 1. Complete Exercise 1 steps. Pipeline for filtering and RANSAC plane fitting implemented.
-
-#### 2. Complete Exercise 2 steps: Pipeline including clustering for segmentation implemented.  
-
-#### 2. Complete Exercise 3 Steps.  Features extracted and SVM trained.  Object recognition implemented.
-Here is an example of how to include an image in your writeup.
-
-![demo-1](https://user-images.githubusercontent.com/20687560/28748231-46b5b912-7467-11e7-8778-3095172b7b19.png)
+4- Perform RANSAC plane fitting to identify the table with max distance threshold to 0.01
 
 
+#### 2. Complete Exercise 2 steps: (102 -> 135) 
 
+1- apply Euclidean clustering on the objects I extract from RANSAC Plane Segmentation with parameter cluster tolerance 0.02, min cluster size 50 setting this to higher number was causing the test 3 world to fail to cluster the glue, max cluster size 1500 
 
-Here's | A | Snappy | Table
---- | --- | --- | ---
-1 | `highlight` | **bold** | 7.41
-2 | a | b | c
-3 | *italic* | text | 403
-4 | 2 | 3 | abcd
+2- Create Cluster-Mask Point Cloud to visualize each cluster separately (default code)
 
+#### 3. Complete Exercise 3 Steps: (136 -> 168)
+
+sensor_stick package url :: https://github.com/JafarAbdi/sensor_stick
+
+1- Capture training examples I picked the number of examples to be 100
+
+2- training a model after filling features.py using train_svm with kernel = 'rbf' because in my case it gives a better model
+
+![](https://github.com/JafarAbdi/RoboND-Perception-Project/blob/master/misc_img/accuracy-1.png)
+![](https://github.com/JafarAbdi/RoboND-Perception-Project/blob/master/misc_img/accuracy-2.png)
+
+3- predict the objects in cloud_objects 
 
 ### Pick and Place Setup
 
 #### 1. For all three tabletop setups (`test*.world`), perform object recognition, then read in respective pick list (`pick_list_*.yaml`). Next construct the messages that would comprise a valid `PickPlace` request output them to `.yaml` format.
 
-And here's another image! 
-![demo-2](https://user-images.githubusercontent.com/20687560/28748286-9f65680e-7468-11e7-83dc-f1a32380b89c.png)
+1- test 1 world,
 
-Spend some time at the end to discuss your code, what techniques you used, what worked and why, where the implementation might fail and how you might improve it if you were going to pursue this project further.  
+video :: https://www.youtube.com/watch?v=oqSZwFTcNBs
 
+yaml file :: https://github.com/JafarAbdi/RoboND-Perception-Project/blob/master/output_1.yaml
+
+1- test 2 world, 
+
+video :: https://www.youtube.com/watch?v=bwX_P-74qa0
+
+yaml file :: https://github.com/JafarAbdi/RoboND-Perception-Project/blob/master/output_2.yaml
+
+1- test 3 world,
+
+video :: https://www.youtube.com/watch?v=UsrrXHhaEF8
+
+yaml file :: https://github.com/JafarAbdi/RoboND-Perception-Project/blob/master/output_3.yaml
+
+My thoughts on my code and what next ::
+
+1- I think my code isn't optimal as you can see in the test 3 video sometimes the glue disappear and it can't detect very small objects
+
+2- my plan is to continue and try to finish the optional challenges.
 
 
